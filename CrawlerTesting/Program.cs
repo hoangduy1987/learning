@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net;
 using Abot.Crawler;
@@ -15,7 +17,7 @@ namespace CrawlerTesting
         {
             //log4net.Config.XmlConfigurator.Configure();
 
-            args = new[] { "https://www.indeed.fr/cmp/Amaris/reviews?fcountry=ALL&sort=any" };
+            args = new[] { "http://www.gowork.pl/opinie_czytaj,857417" };
             Uri uriToCrawl = GetSiteToCrawl(args);
 
             IWebCrawler crawler = GetCustomBehaviorUsingLambdaWebCrawler();
@@ -98,7 +100,7 @@ namespace CrawlerTesting
                     }
                 }
 
-                if(!isDownloadable)
+                if (!isDownloadable)
                     return new CrawlDecision { Allow = false, Reason = "No contain amaris" };
 
                 return new CrawlDecision { Allow = true };
@@ -166,7 +168,35 @@ namespace CrawlerTesting
                 Console.WriteLine("Page had no content {0}", crawledPage.Uri.AbsoluteUri);
             else
             {
-                System.IO.File.WriteAllText(@"E:\Learning\TestText_" + DateTime.Now.Millisecond + ".txt", crawledPage.Content.Text);
+                var htmlDocument = crawledPage.HtmlDocument.DocumentNode;
+                var amarisContents = new List<string>();
+
+                GetAmarisContent(htmlDocument, ref amarisContents);
+
+                var path = @"E:\Learning\TestText.txt";
+                
+
+                foreach (var content in amarisContents)
+                {
+                    // This text is added only once to the file.
+                    if (!File.Exists(path))
+                    {
+                        // Create a file to write to.
+                        using (var sw = File.CreateText(path))
+                        {
+                            sw.WriteLine(content);
+                        }
+                    }
+                    else
+                    {
+                        using (var sw = File.AppendText(path))
+                        {
+                            sw.WriteLine(content);
+                        }
+                    }
+                }
+
+                //System.IO.File.WriteAllText(@"E:\Learning\TestText_" + DateTime.Now.Millisecond + ".txt", crawledPage.Content.Text);
             }
 
             //foreach (var node in crawledPage.HtmlDocument.DocumentNode.SelectNodes("//*"))
@@ -199,6 +229,34 @@ namespace CrawlerTesting
             if (node.NodeValue.ToLower().Contains("amaris"))
                 return true;
             return false;
+        }
+
+        private static void GetAmarisContent(HtmlNode node,ref List<string> amarisContents)
+        {
+            if (node.InnerHtml.ToLower().Contains("amaris")) //Current node have amaris conent
+            {
+                if (node.HasChildNodes)
+                {
+                    //if (node.Name == "div")
+                    //{
+                    //    amarisContents.Add(node.InnerHtml);
+                    //}
+                    //else
+                    //{
+                        foreach (var nodeChild in node.ChildNodes)
+                        {
+                            GetAmarisContent(nodeChild, ref amarisContents);
+                        }
+                    //}
+                }
+                else
+                {
+                    if (node.ParentNode.Name == "div" || node.ParentNode.Name == "span")
+                    {
+                        amarisContents.Add(node.InnerHtml);
+                    }
+                }
+            }   
         }
 
         #endregion
